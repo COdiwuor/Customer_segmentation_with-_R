@@ -1,0 +1,559 @@
+---
+title: "Project_Segmentation"
+author: "Cyril Odiwuor"
+date: "2025-08-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(cluster)
+library(factoextra)
+library(dbscan)
+library(mclust)
+library(ggplot2)
+```
+
+
+**DATA EXPLORATION**
+
+Importing the essential packages required for the data. 
+```{r}
+customer_data=read.csv("/Users/cyrilowuor/Downloads/customer-segmentation-dataset/Mall_Customers.csv")
+str(customer_data)
+```
+
+**Checking for empty values**
+```{r}
+any(is.na(customer_data))
+```
+
+
+
+```{r}
+names(customer_data)
+```
+
+```{r}
+head(customer_data)
+```
+```{r}
+summary(customer_data)
+```
+```{r}
+summary(customer_data$Age)
+```
+
+```{r}
+summary(customer_data$Annual.Income..k..)
+```
+
+```{r}
+sd(customer_data$Age)
+summary(customer_data$Annual.Income..k..)
+sd(customer_data$Annual.Income..k..)
+summary(customer_data$Age)
+```
+```{r}
+sd(customer_data$Spending.Score..1.100.)
+```
+
+**CUSTOMER GENDER VISUALIZATION**
+
+```{r}
+# Creating a barplot and a piechart to show the gender distribution across our customer_data dataset.
+a=table(customer_data$Gender)
+barplot(a,main="Using BarPlot to display Gender Comparision",
+       ylab="Count",
+       xlab="Gender",
+       col=rainbow(2),
+       legend=rownames(a))
+```
+From the above barplot, we observe that the number of females is higher than the males. Now, let us visualize a pie chart to observe the ratio of male and female distribution.
+
+```{r}
+pct=round(a/sum(a)*100)
+lbs=paste(c("Female","Male")," ",pct,"%",sep=" ")
+library(plotrix)
+pie3D(a,labels=lbs,
+   main="Pie Chart Depicting Ratio of Female and Male")
+```
+From the above graph, we conclude that the percentage of females is 56%, whereas the percentage of male in the customer dataset is 44%.
+
+**VISUALIZATION OF AGE DISTRIBUTION**
+ 
+```{r}
+## Plot a histogram to view the distribution to plot the frequency of customer ages.
+hist(customer_data$Age,
+    col="blue",
+    main="Histogram to Show Count of Age Class",
+    xlab="Age Class",
+    ylab="Frequency",
+    labels=TRUE)
+```
+ 
+
+```{r}
+boxplot(customer_data$Age,
+       col="#ff0066",
+       main="Boxplot for Descriptive Analysis of Age")
+```
+we conclude that the maximum customer ages are between 30 and 35. The minimum age of customers is 18, whereas, the maximum age is 70 from the two visualizations shown above.
+
+**ANNUAL INCOME ANALYSIS OF CUSTOMER ANALYSIS**
+```{r}
+##Creating visualizations to analyze the annual income of customers.
+##Histogram for annual income
+summary(customer_data$Annual.Income..k..)
+hist(customer_data$Annual.Income..k..,
+  col="#660033",
+  main="Histogram for Annual Income",
+  xlab="Annual Income Class",
+  ylab="Frequency",
+  labels=TRUE)
+```
+
+```{r}
+#Density plot for annual income
+plot(density(customer_data$Annual.Income..k..),
+    col="yellow",
+    main="Density Plot for Annual Income",
+    xlab="Annual Income Class",
+    ylab="Density")
+polygon(density(customer_data$Annual.Income..k..),
+        col="#ccff66")
+```
+From the descriptive ananlysis done above the minimum annual income of the customers is 15 and the maximum income is 137. People earning an average income of 70 have the highest frequency count in our histogram distribution. The average salary of all the customers is 60.56. In the Kernel Density Plot that we displayed above, we observe that the annual income has a *normal distribution*.
+
+**SPENDING SCORE ANALYSIS**
+```{r}
+summary(customer_data$Spending.Score..1.100.)
+
+## Min. 1st Qu. Median Mean 3rd Qu. Max. 
+## 1.00 34.75 50.00 50.20 73.00 99.00
+
+boxplot(customer_data$Spending.Score..1.100.,
+   horizontal=TRUE,
+   col="#990000",
+   main="BoxPlot for Descriptive Analysis of Spending Score")
+```
+```{r}
+hist(customer_data$Spending.Score..1.100.,
+    main="HistoGram for Spending Score",
+    xlab="Spending Score Class",
+    ylab="Frequency",
+    col="#6600cc",
+    labels=TRUE)
+```
+The minimum spending score is 1, maximum is 99 and the average is *50.20*. We can see Descriptive Analysis of Spending Score is that Min is 1, Max is 99 and avg. is 50.20. From the histogram, we conclude that customers between class 40 and 50 have the highest spending score among all the classes.
+
+**K-MEANS ALGORITHM**
+
+The first step in K-means algorithm is to indicate the number of clusters (k) that we wish to produce in the final output. The algorithm starts by selecting k objects from dataset randomly that will serve as the initial centers for our clusters. These selected objects are the cluster means, also known as centroids. Then, the remaining objects have an assignment of the closest centroid. This centroid is defined by the Euclidean Distance present between the object and the cluster mean. We refer to this step as “cluster assignment”. When the assignment is complete, the algorithm proceeds to calculate new mean value of each cluster present in the data. After the recalculation of the centers, the observations are checked if they are closer to a different cluster. Using the updated cluster mean, the objects undergo reassignment. This goes on repeatedly through several iterations until the cluster assignments stop altering. The clusters that are present in the current iteration are the same as the ones obtained in the previous iteration.
+
+**Summary of K-means Clustering**
+-> We specify the number of clusters that we need to create.
+
+-> The algorithm selects k objects at random from the dataset. This object is the initial cluster or mean.
+
+-> The closest centroid obtains the assignment of a new observation. We base this assignment on the Euclidean Distance between object and the centroid.
+
+-> k clusters in the data points update the centroid through calculation of the new mean values present in all the data points of the cluster. The kth cluster’s centroid has a length of p that contains means of all variables for observations in the k-th cluster. We denote the number of variables with p.
+
+-> Iterative minimization of the total within the sum of squares. Then through the iterative minimization of the total sum of the square, the assignment stop wavering when we achieve maximum iteration. The default value is 10 that the R software uses for the maximum iterations.
+
+**Determining Optimal Clusters**
+
+We need to specify the number of clusters to use. You would like to utilize the optimal number of clusters. To help you in determining the optimal clusters, there are three popular methods –
+
+-> Elbow method
+
+-> Silhouette method
+
+-> Gap statistic
+
+**Elbow method**
+
+The main goal behind cluster partitioning methods like k-means is to define the clusters such that the intra-cluster variation stays minimum.
+
+minimize(sum W(Ck)), k=1…k
+
+Where Ck represents the kth cluster and W(Ck) denotes the intra-cluster variation. With the measurement of the total intra-cluster variation, one can evaluate the compactness of the clustering boundary. We can then proceed to define the optimal clusters as follows –
+
+First, we calculate the clustering algorithm for several values of k. This can be done by creating a variation within k from 1 to 10 clusters. We then calculate the total intra-cluster sum of square (iss). Then, we proceed to plot iss based on the number of k clusters. This plot denotes the appropriate number of clusters required in our model. In the plot, the location of a bend or a knee is the indication of the optimum number of clusters. Let us implement this in R as follows;
+```{r}
+library(purrr)
+set.seed(123)
+# function to calculate total intra-cluster sum of square 
+iss <- function(k) {
+  kmeans(customer_data[,3:5],k,iter.max=100,nstart=100,algorithm="Lloyd" )$tot.withinss
+}
+k.values <- 1:10
+iss_values <- map_dbl(k.values, iss)
+plot(k.values, iss_values,
+    type="b", pch = 19, frame = FALSE, 
+    xlab="Number of clusters K",
+    ylab="Total intra-clusters sum of squares")
+```
+We conclude that 4 is the appropriate number of clusters since it seems to be appearing at the bend in the elbow plot from the above graph
+
+
+
+ **Average Silhouette Method**
+ 
+ We can measure the quality of our clustering operation using average silhouette method.  we can determine how well within the cluster is the data object. If we obtain a high average silhouette width, it means that we have good clustering. The average silhouette method calculates the mean of silhouette observations for different k values. With the optimal number of k clusters, one can maximize the average silhouette over significant values for k clusters.
+
+Using the silhouette function in the cluster package, we can compute the average silhouette width using the kmean function. Here, the optimal cluster will possess highest average.
+
+Lloyd algorithm: is the classic way to perform k-means clustering. It’s an iterative process that tries to find cluster centers (centroids) that minimize the total distance between points and their assigned centroid.
+It’s also sometimes called the “k-means algorithm” itself.
+```{r}
+library(cluster) 
+library(gridExtra)
+library(grid)
+
+
+k2<-kmeans(customer_data[,3:5],2,iter.max=100,nstart=50,algorithm="Lloyd")
+s2<-plot(silhouette(k2$cluster,dist(customer_data[,3:5],"euclidean")))
+```
+```{r}
+library(cluster) 
+library(gridExtra)
+library(grid)
+
+
+k2<-kmeans(customer_data[,3:5],3,iter.max=100,nstart=50,algorithm="Lloyd")
+s2<-plot(silhouette(k2$cluster,dist(customer_data[,3:5],"euclidean")))
+```
+```{r}
+library(cluster) 
+library(gridExtra)
+library(grid)
+
+
+k2<-kmeans(customer_data[,3:5],4,iter.max=100,nstart=50,algorithm="Lloyd")
+s2<-plot(silhouette(k2$cluster,dist(customer_data[,3:5],"euclidean")))
+```
+```{r}
+library(cluster) 
+library(gridExtra)
+library(grid)
+
+
+k2<-kmeans(customer_data[,3:5],5,iter.max=100,nstart=50,algorithm="Lloyd")
+s2<-plot(silhouette(k2$cluster,dist(customer_data[,3:5],"euclidean")))
+```
+```{r}
+library(cluster) 
+library(gridExtra)
+library(grid)
+
+
+k2<-kmeans(customer_data[,3:5],6,iter.max=100,nstart=50,algorithm="Lloyd")
+s2<-plot(silhouette(k2$cluster,dist(customer_data[,3:5],"euclidean")))
+```
+
+
+```{r}
+# Load libraries
+library(cluster)
+library(factoextra)
+
+# Run k-means (2 clusters here)
+k2 <- kmeans(customer_data[, 3:5], centers = 2, iter.max = 100, nstart = 50, algorithm = "Lloyd")
+
+# --- Silhouette plot (substitute for your original plot line)
+sil <- silhouette(k2$cluster, dist(customer_data[, 3:5], "euclidean"))
+fviz_silhouette(sil)
+
+```
+What it shows
+
+The silhouette score measures how well each point fits within its assigned cluster compared to the next closest cluster.
+
+-> Values close to 1 → well-clustered, clearly belongs in that group.
+
+-> Values near 0 → on the boundary between two clusters.
+
+-> Negative values → possibly misclassified.
+
+
+```{r}
+#Cluster visualization (see how points are grouped in 2D)
+fviz_cluster(k2, data = customer_data[, 3:5],
+             geom = "point",
+             ellipse.type = "norm", 
+             palette = "jco", 
+             ggtheme = theme_minimal())
+```
+
+
+```{r}
+# Load libraries
+library(cluster)
+library(factoextra)
+
+# Run k-means (3 clusters here)
+k2 <- kmeans(customer_data[, 3:5], centers = 3, iter.max = 100, nstart = 50, algorithm = "Lloyd")
+
+# --- Silhouette plot (substitute for your original plot line)
+sil <- silhouette(k2$cluster, dist(customer_data[, 3:5], "euclidean"))
+fviz_silhouette(sil)
+```
+```{r}
+#Cluster visualization (see how points are grouped in 2D)
+fviz_cluster(k2, data = customer_data[, 3:5],
+             geom = "point",
+             ellipse.type = "norm", 
+             palette = "jco", 
+             ggtheme = theme_minimal())
+```
+
+
+
+```{r}
+# Load libraries
+library(cluster)
+library(factoextra)
+
+# Run k-means (4 clusters here)
+k2 <- kmeans(customer_data[, 3:5], centers = 4, iter.max = 100, nstart = 50, algorithm = "Lloyd")
+
+# --- Silhouette plot (substitute for your original plot line)
+sil <- silhouette(k2$cluster, dist(customer_data[, 3:5], "euclidean"))
+fviz_silhouette(sil)
+```
+```{r}
+#Cluster visualization (see how points are grouped in 2D)
+fviz_cluster(k2, data = customer_data[, 3:5],
+             geom = "point",
+             ellipse.type = "norm", 
+             palette = "jco", 
+             ggtheme = theme_minimal())
+```
+
+
+```{r}
+# Load libraries
+library(cluster)
+library(factoextra)
+
+# Run k-means (5 clusters here)
+k2 <- kmeans(customer_data[, 3:5], centers = 5, iter.max = 100, nstart = 50, algorithm = "Lloyd")
+
+# --- Silhouette plot (substitute for your original plot line)
+sil <- silhouette(k2$cluster, dist(customer_data[, 3:5], "euclidean"))
+fviz_silhouette(sil)
+```
+
+
+```{r}
+#Cluster visualization (see how points are grouped in 2D)
+fviz_cluster(k2, data = customer_data[, 3:5],
+             geom = "point",
+             ellipse.type = "norm", 
+             palette = "jco", 
+             ggtheme = theme_minimal())
+```
+**Cluster Plot (blue vs yellow groups)**
+
+What it shows
+
+-> This is a 2D projection (via PCA or similar) of the mall customer dataset.
+
+-> Each point = a customer.
+
+-> Two groups (Cluster 1 in blue, Cluster 2 in yellow) have been identified.
+
+-> The ellipses show the spread and overlap of each cluster.
+
+The results show some separation (blue vs yellow), but the clusters overlap a lot, and the silhouette score (0.29) confirms the split isn’t strong.
+
+Now, we make use of the fviz_nbclust() function to determine and visualize the optimal number of clusters as follows –
+
+```{r}
+library(NbClust)
+library(factoextra)
+
+fviz_nbclust(customer_data[,3:5], kmeans, method = "silhouette")
+```
+
+**Gap Statistics**
+
+We can use this method to any of the clustering method like K-means, hierarchical clustering etc. Using the gap statistic, one can compare the total intracluster variation for different values of k along with their expected values under the null reference distribution of data. With the help of Monte Carlo simulations, one can produce the sample dataset. For each variable in the dataset, we can calculate the range between min(xi) and max (xj) through which we can produce values uniformly from interval lower bound to upper bound.
+
+For computing the gap statistics method we can utilize the clusGap function for providing gap statistic as well as standard error for a given output.
+
+```{r}
+library("cluster")
+library("factoextra")
+set.seed(125)
+stat_gap <- clusGap(customer_data[,3:5], FUN = kmeans, nstart = 25,
+            K.max = 10, B = 50)
+fviz_gap_stat(stat_gap)
+```
+Now, let us take k = 6 as our optimal cluster –
+
+```{r}
+k6<-kmeans(customer_data[,3:5],6,iter.max=100,nstart=50,algorithm="Lloyd")
+k6
+```
+In the output of our kmeans operation, we observe a list with several key information. From this, we conclude the useful information being –
+
+Cluster – This is a vector of several integers that denote the cluster which has an allocation of each point.
+
+Totss – This represents the total sum of squares.
+
+Centers – Matrix comprising of several cluster centers
+
+Withinss – This is a vector representing the intra-cluster sum of squares having one component per cluster.
+
+Tot.withinss – This denotes the total intra-cluster sum of squares.
+
+Betweenss – This is the sum of between-cluster squares.
+
+Size – The total number of points that each cluster holds.
+
+
+**Testing Algorithms**
+
+**Gaussian Mixture Model (GMM)**
+
+The Gaussian Mixture Model assumes that the data is generated from a combination (mixture) of several Gaussian (normal) distributions.
+Each cluster is represented as a “cloud” with its own mean and covariance.
+Unlike K-Means, GMM allows clusters to have different shapes and sizes and gives probabilistic membership for each customer.
+
+There are steps in carrying out Gaussian Mixture Model:
+
+1. Fit GMM with different numbers of cluster
+2. Use BIC (Bayesian Information Criterion) to automatically select the best model.
+3. Visualize the resulting segmentation.
+
+```{r}
+mall_num <- customer_data %>% select('Age', 'Annual.Income..k..', 'Spending.Score..1.100.')
+mall_scaled <- scale(mall_num)
+```
+
+**Fit GMM model with up to 10 components**
+
+```{r}
+gmm_model <- Mclust(mall_scaled, G = 1:10)
+summary(gmm_model)
+```
+
+**Optimal Number of Clusters**
+
+```{r}
+fviz_mclust(gmm_model, "BIC")
+```
+**Fit GMM model with up to 10 components**
+
+```{r}
+fviz_mclust(gmm_model, "classification", geom = "point", ellipse.type = "norm", palette = "Dark2") +
+ggtitle("Customer Segmentation using Gaussian Mixture Model")
+```
+**Cluster Profiles**
+
+```{r}
+customer_data$GMM_Cluster <- as.factor(gmm_model$classification)
+aggregate(mall_num, by = list(Cluster = customer_data$GMM_Cluster), FUN = mean)
+```
+Each color/shape represents a cluster identified by the GMM algorithm:
+
+**Cluster 1 (Green circles):**
+
+Average Age: 42
+High income (~64k) but very low spending (~19)
+Represents high earners who are cautious spenders.
+
+**Cluster 2 (Orange triangles):**
+
+Youngest group (avg age ~25) with low income (~25k) but high spending (~79)
+Represents young, impulsive shoppers or students with high enthusiasm but limited income.
+
+**Cluster 3 (Purple squares):**
+
+Older customers (avg age ~43), mid-level income (~55k), moderate spending (~50)
+Represents balanced, middle-aged professionals.
+
+**Cluster 4 (Pink crosses):**
+
+Middle-aged (avg age ~33), very high income (~86k), and high spending (~82)
+Represents wealthy, premium customers — high-value targets for marketing.
+
+**Model	Description**
+
+EII-	Equal volume spherical (K-Means equivalent)
+
+VII-	Variable volume spherical
+
+EEI-	Equal volume, equal shape, axis-aligned ellipsoids
+
+VEI-	Variable volume, equal shape, axis-aligned ellipsoids
+
+EVI-	Equal volume, variable shape, axis-aligned ellipsoids
+
+VVI-	Variable volume and shape, axis-aligned ellipsoids (your best model)
+
+EEE-	Equal volume, shape, and orientation ellipsoids
+
+EEV-	Equal volume and shape, variable orientation
+
+VEV-	Variable volume, equal shape, variable orientation
+
+VVV-	Variable volume, shape, and orientation — most flexible and complex
+
+The letters describe how much freedom each cluster’s covariance matrix has.
+The more “V”s in the code, the more flexible (but complex) the model.
+Your best model (VVI) strikes a great balance — flexible enough to capture differences among customers without overfitting.
+
+
+**DBSCAN**
+
+DBSCAN (Density-Based Spatial Clustering of Applications with Noise) groups together points that are densely packed, and labels points in low-density regions as noise (outliers).
+
+It is ideal when:
+
+-The number of clusters is unknown.
+
+-The data contains outliers or irregular shapes.
+
+Key Parameters
+
+-eps (ε): Neighborhood radius.
+
+-minPts: Minimum points required to form a dense region.
+
+```{r}
+kNNdistplot(mall_scaled, k = 5)
+abline(h = 0.8, col = "red", lty = 2)
+
+```
+
+The “elbow” in the curve (~0.8 here) is a good eps value
+
+**DBSCAN Application**
+
+**Apply Dscan**
+```{r}
+dbscan_model <- dbscan(mall_scaled, eps = 0.8, minPts = 5)
+```
+
+**Add cluster labels**
+```{r}
+customer_data$DBSCAN_Cluster <- as.factor(dbscan_model$cluster)
+```
+
+**Visualize DBSCAN Clusters**
+```{r}
+fviz_cluster(list(data = mall_scaled, cluster = dbscan_model$cluster)) +
+ggtitle("Customer Segmentation using DBSCAN")
+
+```
+**Examine Cluster profiles**
+
+```{r}
+aggregate(mall_num, by = list(Cluster = customer_data$DBSCAN_Cluster), FUN = mean)
+
+```
